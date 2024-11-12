@@ -41,3 +41,34 @@ test "return err"{
     return;
   };
 }
+
+// the try catch in zig is different from 'try catch' chain in other languages
+fn failFunc() error{scam}!i32{
+  try failingFunc();
+  return 15;
+}
+
+test "try"{
+  const s = failFunc() catch |err|{
+    try expect(err == error.scam);
+    return;
+  };
+  try  expect(s == 15);
+}
+
+
+// errdefer is jsut like defer, exec only if func returned with err in the block
+var issue: u32 =  36;
+
+fn failFuncCnt() error{scam}!void{
+  errdefer issue += 1;
+  try failingFunc();
+}
+
+test "errdefer"{
+  failFuncCnt() catch |err|{
+    try expect(err == error.scam);
+    try expect(issue == 37);
+    return;
+  };
+}
