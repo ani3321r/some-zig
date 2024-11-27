@@ -3,6 +3,7 @@ const expect = std.testing.expect;
 const eql = std.mem.eql;
 const ArrList = std.ArrayList;
 const test_allo = std.testing.allocator;
+const fixedBuff = std.heap.FixedBufferAllocator;
 
 
 // writer usage
@@ -67,4 +68,54 @@ test "read next line"{
     "Welcome: \"{s}\"\n",
     .{input},
   );
+}
+
+
+// implementing writer
+pub fn MyByteList(comptime cap: usize) type{
+  return struct{
+    buff: [cap]u8 = undefined,
+    allo: fixedBuff,
+    list: ArrList(u8),
+
+    const Self = @This();
+
+    pub fn init() Self{
+      var self = Self{
+        .buff = undefined,
+        .allo = fixedBuff.init(&Self.buff),
+        .list = undefined,
+      };
+      self.list = ArrList(u8).init(self.allo.allocator());
+      return self;
+    }
+
+    pub fn writer(self: *Self) std.io.Writer(*Self, error{OutOfMem}, appendW){
+      return .{.context = self};
+    }
+
+    pub fn appendW(self: *Self, data: []const u8) error{OutOfMem}!usize{
+      try self.list.appendSlice(data);
+      return data.len;
+    }
+
+    pub fn getItems(self: *const Self) []const u8{
+      return self.list.items;
+    }
+
+    pub fn deinit(self: *Self) void{
+      self.list.deinit();
+    } 
+  };
+}
+
+test "custom writer" {
+    var byteList = MyByteList(100).init();
+    defer byteList.deinit();
+
+    const writer = byteList.writer();
+    try writer.writeAll("Hello, Raiden!");
+
+    const items = byteList.getItems();
+    try std.testing.expectEqualStrings("Hello, Raiden!", items);
 }
